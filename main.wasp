@@ -1,0 +1,102 @@
+app KetoSensei {
+  wasp: {
+    version: "^0.16.3"
+  },
+  title: "KetoSensei",
+  client: {
+    rootComponent: import { Layout } from "@src/Layout.jsx",
+  },
+  auth: {
+    userEntity: User,
+    methods: {
+      usernameAndPassword: {}
+    },
+    onAuthFailedRedirectTo: "/login",
+    onAuthSucceededRedirectTo: "/"
+  }
+}
+
+route LoginRoute { path: "/login", to: LoginPage }
+page LoginPage {
+  component: import Login from "@src/pages/auth/Login.jsx"
+}
+
+route SignupRoute { path: "/signup", to: SignupPage }
+page SignupPage {
+  component: import Signup from "@src/pages/auth/Signup.jsx"
+}
+
+action updateUserPreferences {
+  fn: import { updateUserPreferences } from "@src/actions.js",
+  entities: [UserPreferences]
+}
+
+action createMealPlan {
+  fn: import { createMealPlan } from "@src/actions.js",
+  entities: [MealPlan, Meal]
+}
+
+action addRecipeToFavorites {
+  fn: import { addRecipeToFavorites } from "@src/actions.js",
+  entities: [Recipe]
+}
+
+action trackStreak {
+  fn: import { trackStreak } from "@src/actions.js",
+  entities: [Streak]
+}
+
+query getUserPreferences {
+  fn: import { getUserPreferences } from "@src/queries.js",
+  entities: [UserPreferences]
+}
+
+query getMealPlans {
+  fn: import { getMealPlans } from "@src/queries.js",
+  entities: [MealPlan]
+}
+
+query getRecipes {
+  fn: import { getRecipes } from "@src/queries.js",
+  entities: [Recipe]
+}
+
+query getStreaks {
+  fn: import { getStreaks } from "@src/queries.js",
+  entities: [Streak]
+}
+
+query getTodaysTip {
+  fn: import { getTodaysTip } from "@src/queries.js",
+  entities: [DailyTip]
+}
+
+route DashboardRoute { path: "/", to: DashboardPage }
+page DashboardPage {
+  component: import DashboardPage from "@src/pages/Dashboard.jsx",
+  authRequired: true
+}
+
+route MealPlanningRoute { path: "/meal-planning", to: MealPlanningPage }
+page MealPlanningPage {
+  component: import MealPlanningPage from "@src/pages/MealPlanning.jsx",
+  authRequired: true
+}
+
+route RecipeLibraryRoute { path: "/recipes", to: RecipeLibraryPage }
+page RecipeLibraryPage {
+  component: import RecipeLibraryPage from "@src/pages/RecipeLibrary.jsx",
+  authRequired: true
+}
+
+route UserPreferencesRoute { path: "/preferences", to: UserPreferencesPage }
+page UserPreferencesPage {
+  component: import UserPreferencesPage from "@src/pages/UserPreferences.jsx",
+  authRequired: true
+}
+
+route SenseiRoute { path: "/sensei", to: SenseiPage }
+page SenseiPage {
+  component: import SenseiPage from "@src/pages/Sensei.jsx",
+  authRequired: true
+}

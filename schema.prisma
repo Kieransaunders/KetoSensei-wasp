@@ -1,0 +1,103 @@
+datasource db {
+  provider = "sqlite"
+  // Wasp requires that the url is set to the DATABASE_URL environment variable.
+  url      = env("DATABASE_URL")
+}
+
+// Wasp requires the `prisma-client-js` generator to be present.
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+    id          Int              @id @default(autoincrement())
+    mealPlans   MealPlan[]
+    recipes     Recipe[]
+    preferences UserPreferences?
+    streaks     Streak[]
+}
+
+model MealPlan {
+    id        Int      @id @default(autoincrement())
+    user      User     @relation(fields: [userId], references: [id])
+    userId    Int
+    meals     Meal[]
+    weekStart DateTime
+}
+
+model Meal {
+    id         Int      @id @default(autoincrement())
+    mealPlan   MealPlan @relation(fields: [mealPlanId], references: [id])
+    mealPlanId Int
+    type       String
+    recipes    Recipe[]
+}
+
+model Recipe {
+    id           Int     @id @default(autoincrement())
+    name         String
+    type         String
+    ingredients  String
+    instructions String
+    image        String?
+    isFavorite   Boolean @default(false)
+    user         User    @relation(fields: [userId], references: [id])
+    userId       Int
+    Meal         Meal?   @relation(fields: [mealId], references: [id])
+    mealId       Int?
+}
+
+model UserPreferences {
+    id                Int      @id @default(autoincrement())
+    user              User     @relation(fields: [userId], references: [id])
+    userId            Int      @unique
+    
+    // Dietary Preferences
+    vegetarian        Boolean  @default(false)
+    vegan             Boolean  @default(false)
+    pescatarian       Boolean  @default(false)
+    dairyFree         Boolean  @default(false)
+    glutenFree        Boolean  @default(false)
+    nutFree           Boolean  @default(false)
+    
+    // Protein Sources
+    proteinSources    String?  // JSON array of preferred proteins
+    
+    // Allergies & Intolerances
+    allergies         String?  // JSON array of allergies
+    intolerances      String?  // JSON array of food intolerances
+    
+    // Keto Preferences
+    carbLimit         Int?     @default(20) // Daily net carb limit
+    intermittentFasting Boolean @default(false)
+    fastingHours      Int?     // Hours of fasting window
+    
+    // Goals & Experience
+    ketoExperience    String?  // 'beginner', 'intermediate', 'advanced'
+    primaryGoal       String?  // 'weight_loss', 'maintenance', 'muscle_gain', 'health'
+    
+    updatedAt         DateTime @updatedAt
+    createdAt         DateTime @default(now())
+}
+
+model Streak {
+    id            Int      @id @default(autoincrement())
+    user          User     @relation(fields: [userId], references: [id])
+    userId        Int
+    type          String
+    currentStreak Int      @default(0)
+    maxStreak     Int      @default(0)
+    lastCheckIn   DateTime?
+    
+    @@unique([userId, type])
+}
+
+model DailyTip {
+    id          Int      @id @default(autoincrement())
+    title       String
+    content     String
+    category    String   // 'mindset', 'nutrition', 'habit', 'motivation'
+    dayOfYear   Int      // 1-365, to cycle tips yearly
+    isActive    Boolean  @default(true)
+    createdAt   DateTime @default(now())
+}

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(wasp db migrate-dev:*)",
+      "Bash(wasp db:*)",
+      "Bash(sqlite3:*)",
+      "Bash(pkill:*)",
+      "Bash(true)",
+      "Bash(wasp clean:*)",
+      "Bash(rm:*)",
+      "Bash(wasp start:*)"
+    ],
+    "deny": []
+  }
+}
