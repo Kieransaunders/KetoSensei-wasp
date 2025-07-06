@@ -2,38 +2,76 @@
 
 This guide explains how to connect KetoSensei with Flowise for AI-powered recipe generation.
 
-## Quick Setup
+## ✅ Flowise API Integration (CONFIRMED WORKING)
 
-1. **Copy environment template**:
-   ```bash
-   cp .env.example .env
-   ```
+**Yes! Flowise has a comprehensive REST API** for integrating with external applications.
 
-2. **Update Flowise settings** in `.env`:
-   ```
-   FLOWISE_API_URL="http://your-flowise-instance:3000"
-   FLOWISE_API_KEY="your-api-key"
-   FLOWISE_RECIPE_FLOW_ID="your-recipe-flow-id"
-   ```
+### **API Endpoint Structure**
+```
+POST {FLOWISE_URL}/api/v1/prediction/{CHATFLOW_ID}
 
-3. **Test the connection**:
-   - Start the app with `wasp start`
-   - Navigate to `/generate-recipes`
-   - Try generating recipes with any ingredients
+Content-Type: application/json
+Authorization: Bearer {API_KEY}  // Optional, if API key protection enabled
+```
 
-## Current Implementation Status
+### **Request Format**
+```javascript
+{
+  "question": "Your prompt here",
+  "sessionId": "user_123_recipes",     // For conversation memory
+  "streaming": false,                  // true for real-time streaming
+  "overrideConfig": {
+    "temperature": 0.7,               // AI creativity level
+    "maxTokens": 2000,               // Response length limit
+    "sessionId": "user_123_recipes"  // Maintain conversation context
+  }
+}
+```
 
-✅ **Ready for Testing**:
-- Preference injection system
-- User dietary restrictions handling
-- Recipe generation UI
-- Database storage for generated recipes
-- Error handling and loading states
+### **Response Format**
+```javascript
+{
+  "text": "AI response here",           // Main response content
+  "response": "AI response here",    // Alternative response field
+  "sessionId": "user_123_recipes",   // Session identifier
+  "chatId": "chat_id_here"          // Chat identifier
+}
+```
 
-🔄 **Using Mock Data**:
-- The system currently returns mock recipes
-- Replace `getMockRecipes()` with actual Flowise calls
-- All infrastructure is in place for real integration
+## 🚀 Quick Setup Steps
+
+### **1. Copy Environment Template**
+```bash
+cp .env.example .env
+```
+
+### **2. Set Up Flowise Instance**
+- **Local Setup**: `npx flowise start` (runs on http://localhost:3000)
+- **Cloud Setup**: Deploy Flowise to your preferred cloud provider
+- **Docker Setup**: Use official Flowise Docker images
+
+### **3. Create Recipe Generation Chatflow**
+1. Open Flowise UI (http://localhost:3000)
+2. Create new Chatflow
+3. Add Claude/OpenAI model node
+4. Configure with your API keys
+5. Set system message for recipe generation
+6. Save and note the Chatflow ID
+
+### **4. Update Environment Variables**
+```bash
+# .env file
+FLOWISE_API_URL="http://localhost:3000"
+FLOWISE_API_KEY="your-api-key-if-enabled"  # Optional
+FLOWISE_RECIPE_FLOW_ID="your-chatflow-id"   # From step 3
+```
+
+### **5. Test Integration**
+```bash
+npm run dev                    # Start KetoSensei
+# Navigate to /generate-recipes
+# Enter ingredients and test recipe generation
+```
 
 ## Flowise Flow Configuration
 

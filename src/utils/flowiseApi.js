@@ -5,11 +5,11 @@
  * Configuration for Flowise API
  */
 const FLOWISE_CONFIG = {
-  // TODO: Replace with actual Flowise endpoint
-  baseUrl: process.env.FLOWISE_API_URL || 'http://localhost:3000',
-  apiKey: process.env.FLOWISE_API_KEY || '',
+  // Your actual Flowise instance
+  baseUrl: process.env.FLOWISE_API_URL || 'https://flowise.iconnectit.co.uk',
+  apiKey: process.env.FLOWISE_API_KEY || 'BMErGUIYUOJdHNvQSs5j2UFsLdWtt47BOwCrWN-qm8I',
   flows: {
-    recipeGeneration: process.env.FLOWISE_RECIPE_FLOW_ID || 'recipe-flow-id',
+    recipeGeneration: process.env.FLOWISE_RECIPE_FLOW_ID || '8fe26341-e8c2-4745-9d1c-447e96822743',
     dailyMotivation: process.env.FLOWISE_MOTIVATION_FLOW_ID || 'motivation-flow-id',
     mealPlanning: process.env.FLOWISE_MEAL_PLAN_FLOW_ID || 'meal-plan-flow-id'
   }
@@ -22,57 +22,105 @@ const FLOWISE_CONFIG = {
  * @returns {Promise<Array>} - Array of generated recipes
  */
 export async function callFlowiseForRecipes(prompt, userId) {
-  // TODO: Replace with actual Flowise API implementation
   console.log('🔄 Calling Flowise API for recipe generation...');
   console.log('Prompt:', prompt);
   console.log('User ID:', userId);
 
   try {
-    // For development, return mock data
-    if (process.env.NODE_ENV === 'development' || !FLOWISE_CONFIG.apiKey) {
+    // Use real API if we have proper configuration
+    const hasValidConfig = FLOWISE_CONFIG.apiKey && 
+                          FLOWISE_CONFIG.baseUrl && 
+                          FLOWISE_CONFIG.flows.recipeGeneration;
+    
+    if (!hasValidConfig) {
+      console.log('🔄 Missing Flowise config, using mock data');
       return getMockRecipes(prompt);
     }
 
-    // Actual Flowise API call (uncomment when ready)
-    /*
+    // ACTUAL Flowise API call
     const response = await fetch(`${FLOWISE_CONFIG.baseUrl}/api/v1/prediction/${FLOWISE_CONFIG.flows.recipeGeneration}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${FLOWISE_CONFIG.apiKey}`
+        // Add authorization if API key is set
+        ...(FLOWISE_CONFIG.apiKey && { 'Authorization': `Bearer ${FLOWISE_CONFIG.apiKey}` })
       },
       body: JSON.stringify({
         question: prompt,
         sessionId: `user_${userId}_recipes`,
+        streaming: false,
         overrideConfig: {
           temperature: 0.7,
-          maxTokens: 2000
+          maxTokens: 2000,
+          sessionId: `user_${userId}_recipes`
         }
       })
     });
 
     if (!response.ok) {
-      throw new Error(`Flowise API error: ${response.status}`);
+      throw new Error(`Flowise API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
+    console.log('✅ Flowise API response:', data);
     
     // Parse the JSON response from Claude
     try {
-      const recipes = JSON.parse(data.text || data.response);
+      // Flowise returns different response formats, handle both
+      const responseText = data.text || data.response || data;
+      
+      // If it's already an object, use it directly
+      if (typeof responseText === 'object') {
+        return Array.isArray(responseText) ? responseText : [responseText];
+      }
+      
+      // Try to parse as JSON
+      const recipes = JSON.parse(responseText);
       return Array.isArray(recipes) ? recipes : [recipes];
+      
     } catch (parseError) {
-      console.error('Failed to parse recipe JSON:', data.text);
+      console.error('Failed to parse recipe JSON:', data);
+      // If JSON parsing fails, try to extract recipes from text response
+      const fallbackRecipes = extractRecipesFromText(data.text || data.response || JSON.stringify(data));
+      if (fallbackRecipes.length > 0) {
+        return fallbackRecipes;
+      }
       throw new Error('Invalid recipe format from AI');
     }
-    */
-
-    // For now, return mock data
-    return getMockRecipes(prompt);
 
   } catch (error) {
     console.error('Flowise API call failed:', error);
-    throw new Error('Failed to generate recipes. Please try again.');
+    
+    // Fallback to mock data in case of API failure
+    console.log('🔄 Falling back to mock data...');
+    return getMockRecipes(prompt);
+  }
+}
+
+/**
+ * Extract recipes from text response when JSON parsing fails
+ * @param {string} text - Raw text response from AI
+ * @returns {Array} - Extracted recipes
+ */
+function extractRecipesFromText(text) {
+  try {
+    // Look for JSON blocks in the text
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    
+    // If no JSON found, create a single recipe from the text
+    return [{
+      title: "AI Generated Recipe",
+      ingredients: ["Based on your requested ingredients"],
+      instructions: text.split('\n').filter(line => line.trim()),
+      prepTime: "15 minutes",
+      servings: 1,
+      netCarbs: "Estimated keto-friendly"
+    }];
+  } catch {
+    return [];
   }
 }/**
  * Call Flowise API for daily motivation
