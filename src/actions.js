@@ -191,30 +191,15 @@ export const generateRecipeFromIngredients = async ({ ingredients }, context) =>
     // 2. Format ingredients
     const ingredientList = Array.isArray(ingredients) ? ingredients.join(', ') : ingredients;
     
-    // 3. Build prompt for Flowise
+    // 3. Build concise prompt for faster processing
     const prompt = `${userContext}
 
-INGREDIENTS TO USE: ${ingredientList}
+INGREDIENTS: ${ingredientList}
 
-Generate 3 unique keto recipes using these ingredients. Each recipe must:
-- Be keto-friendly (under 10g net carbs per serving)
-- Respect the user's dietary restrictions above
-- Include the provided ingredients as main components
-- Be practical and easy to make
+Generate 3 keto recipes using these ingredients. Format as JSON:
+[{"title":"Name","ingredients":["item1","item2"],"instructions":["step1","step2"],"prepTime":"15min","servings":2,"netCarbs":"5g"}]
 
-Format as JSON array:
-[
-  {
-    "title": "Recipe Name",
-    "ingredients": ["ingredient 1", "ingredient 2", ...],
-    "instructions": ["step 1", "step 2", ...],
-    "prepTime": "15 minutes",
-    "servings": 2,
-    "netCarbs": "5g per serving"
-  }
-]
-
-Return ONLY the JSON array, no additional text.`;
+Return only JSON array.`;
 
     // 4. Call Flowise API
     const rawRecipes = await callFlowiseForRecipes(prompt, context.user.id);

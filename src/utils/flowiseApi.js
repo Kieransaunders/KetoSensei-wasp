@@ -1,6 +1,8 @@
 // Flowise API integration utility
 // This file centralizes all Flowise API calls for easier management
 
+import { getCachedRecipes, setCachedRecipes } from './recipeCache.js';
+
 /**
  * Configuration for Flowise API
  */
@@ -23,10 +25,19 @@ const FLOWISE_CONFIG = {
  */
 export async function callFlowiseForRecipes(prompt, userId) {
   console.log('🔄 Calling Flowise API for recipe generation...');
-  console.log('Prompt:', prompt);
   console.log('User ID:', userId);
 
   try {
+    // Extract ingredients for caching
+    const ingredientMatch = prompt.match(/INGREDIENTS: (.+)/);
+    const ingredients = ingredientMatch ? ingredientMatch[1] : '';
+    
+    // Check cache first
+    const cachedRecipes = getCachedRecipes(ingredients);
+    if (cachedRecipes) {
+      return cachedRecipes;
+    }
+
     // Use real API if we have proper configuration
     const hasValidConfig = FLOWISE_CONFIG.apiKey && 
                           FLOWISE_CONFIG.baseUrl && 
@@ -37,7 +48,10 @@ export async function callFlowiseForRecipes(prompt, userId) {
       return getMockRecipes(prompt);
     }
 
-    // ACTUAL Flowise API call
+    // ACTUAL Flowise API call with streaming for better performance
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
     const response = await fetch(`${FLOWISE_CONFIG.baseUrl}/api/v1/prediction/${FLOWISE_CONFIG.flows.recipeGeneration}`, {
       method: 'POST',
       headers: {
@@ -48,21 +62,24 @@ export async function callFlowiseForRecipes(prompt, userId) {
       body: JSON.stringify({
         question: prompt,
         sessionId: `user_${userId}_recipes`,
-        streaming: false,
+        streaming: false,  // Keep false for now, streaming needs special handling
         overrideConfig: {
-          temperature: 0.7,
-          maxTokens: 2000,
+          temperature: 0.5,  // Lower temperature = faster, more focused responses
+          maxTokens: 800,    // Reduced significantly for faster response
           sessionId: `user_${userId}_recipes`
         }
-      })
+      }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`Flowise API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log('✅ Flowise API response:', data);
+    console.log('✅ Flowise API response received');
     
     // Parse the JSON response from Claude
     try {
@@ -71,18 +88,23 @@ export async function callFlowiseForRecipes(prompt, userId) {
       
       // If it's already an object, use it directly
       if (typeof responseText === 'object') {
-        return Array.isArray(responseText) ? responseText : [responseText];
+        const recipes = Array.isArray(responseText) ? responseText : [responseText];
+        setCachedRecipes(ingredients, recipes); // Cache the result
+        return recipes;
       }
       
       // Try to parse as JSON
       const recipes = JSON.parse(responseText);
-      return Array.isArray(recipes) ? recipes : [recipes];
+      const recipeArray = Array.isArray(recipes) ? recipes : [recipes];
+      setCachedRecipes(ingredients, recipeArray); // Cache the result
+      return recipeArray;
       
     } catch (parseError) {
       console.error('Failed to parse recipe JSON:', data);
       // If JSON parsing fails, try to extract recipes from text response
       const fallbackRecipes = extractRecipesFromText(data.text || data.response || JSON.stringify(data));
       if (fallbackRecipes.length > 0) {
+        setCachedRecipes(ingredients, fallbackRecipes); // Cache the result
         return fallbackRecipes;
       }
       throw new Error('Invalid recipe format from AI');
