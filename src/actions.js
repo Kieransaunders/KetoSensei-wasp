@@ -143,6 +143,43 @@ export const trackStreak = async ({ type }, context) => {
   }
 }
 
+export const addWaterGlass = async (args, context) => {
+  if (!context.user) { throw new HttpError(401); }
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Find or create today's water intake record
+  let waterIntake = await context.entities.WaterIntake.findUnique({
+    where: { 
+      userId_date: { 
+        userId: context.user.id, 
+        date: today 
+      } 
+    }
+  });
+
+  if (!waterIntake) {
+    // Create new water intake record for today
+    waterIntake = await context.entities.WaterIntake.create({
+      data: { 
+        userId: context.user.id, 
+        glasses: 1,
+        date: today
+      }
+    });
+  } else {
+    // Increment glasses count (max 8 glasses per day)
+    const newGlassCount = Math.min(waterIntake.glasses + 1, 8);
+    waterIntake = await context.entities.WaterIntake.update({
+      where: { id: waterIntake.id },
+      data: { glasses: newGlassCount }
+    });
+  }
+
+  return waterIntake;
+}
+
 function getBeltMessage(streakCount) {
   if (streakCount >= 365) return "🥋 BLACK BELT MASTER! You have achieved the ultimate discipline. Even the ancient masters bow before your dedication!";
   if (streakCount >= 180) return "🟫 Brown Belt Warrior! Your consistency is legendary. You are one with the keto way.";

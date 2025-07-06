@@ -3,6 +3,7 @@ import { useQuery, useAction } from 'wasp/client/operations';
 import { getUserPreferences, updateUserPreferences } from 'wasp/client/operations';
 
 const UserPreferencesPage = () => {
+  // ALL HOOKS MUST BE AT THE TOP - BEFORE ANY CONDITIONAL RETURNS
   const { data: preferences, isLoading, error } = useQuery(getUserPreferences);
   const updateUserPreferencesFn = useAction(updateUserPreferences);
   const [saveMessage, setSaveMessage] = useState('');
@@ -27,6 +28,7 @@ const UserPreferencesPage = () => {
     primaryGoal: ''
   });
 
+  // ALL useEffect hooks must also be before conditional returns
   useEffect(() => {
     if (preferences) {
       setFormData({
@@ -48,6 +50,7 @@ const UserPreferencesPage = () => {
     }
   }, [preferences]);
 
+  // NOW it's safe to have conditional returns - all hooks are already called
   if (isLoading) return (
     <div className="flex justify-center items-center h-64">
       <div className="text-lg">Loading your preferences...</div>
@@ -99,8 +102,20 @@ const UserPreferencesPage = () => {
       setSaveMessage("Your preferences have been saved, grasshopper! The Sensei will use this wisdom to guide you better. 🥋");
       setTimeout(() => setSaveMessage(''), 5000);
     } catch (error) {
-      setSaveMessage("The sensei encountered an error. Please try again.");
+      console.error('Save preferences error:', error);
+      
+      // Improved error message with more context
+      const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+      setSaveMessage(`The sensei encountered an error: ${errorMessage}. Please try again.`);
       setTimeout(() => setSaveMessage(''), 5000);
+      
+      // Optional: Log to Sentry if available
+      if (window.Sentry) {
+        window.Sentry.captureException(error, {
+          tags: { component: 'UserPreferences', action: 'save' },
+          extra: { formData }
+        });
+      }
     }
   };
 

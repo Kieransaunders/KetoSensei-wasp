@@ -46,6 +46,11 @@ action trackStreak {
   entities: [Streak]
 }
 
+action addWaterGlass {
+  fn: import { addWaterGlass } from "@src/actions.js",
+  entities: [WaterIntake]
+}
+
 query getUserPreferences {
   fn: import { getUserPreferences } from "@src/queries.js",
   entities: [UserPreferences]
@@ -69,6 +74,11 @@ query getStreaks {
 query getTodaysTip {
   fn: import { getTodaysTip } from "@src/queries.js",
   entities: [DailyTip]
+}
+
+query getTodaysWater {
+  fn: import { getTodaysWater } from "@src/queries.js",
+  entities: [WaterIntake]
 }
 
 route DashboardRoute { path: "/", to: DashboardPage }

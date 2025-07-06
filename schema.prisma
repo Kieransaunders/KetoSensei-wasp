@@ -15,6 +15,7 @@ model User {
     recipes     Recipe[]
     preferences UserPreferences?
     streaks     Streak[]
+    waterIntakes WaterIntake[]
 }
 
 model MealPlan {
@@ -100,4 +101,14 @@ model DailyTip {
     dayOfYear   Int      // 1-365, to cycle tips yearly
     isActive    Boolean  @default(true)
     createdAt   DateTime @default(now())
+}
+
+model WaterIntake {
+    id        Int      @id @default(autoincrement())
+    user      User     @relation(fields: [userId], references: [id])
+    userId    Int
+    glasses   Int      @default(0)
+    date      DateTime @default(now())
+    
+    @@unique([userId, date])
 }

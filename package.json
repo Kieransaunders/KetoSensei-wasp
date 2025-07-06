@@ -1,6 +1,13 @@
 {
   "name": "KetoSensei",
   "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "dev": "wasp start"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
     "@sentry/react": "^9.35.0",
@@ -14,6 +21,10 @@
     "wasp": "file:.wasp/out/sdk/wasp"
   },
   "devDependencies": {
+    "@playwright/test": "^1.53.2",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^18.0.37",
     "prisma": "5.19.1",
     "typescript": "^5.1.0",

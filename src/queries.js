@@ -83,6 +83,29 @@ export const getStreaks = async (args, context) => {
   });
 }
 
+export const getTodaysWater = async (args, context) => {
+  if (!context.user) { throw new HttpError(401) }
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  let waterIntake = await context.entities.WaterIntake.findUnique({
+    where: { 
+      userId_date: { 
+        userId: context.user.id, 
+        date: today 
+      } 
+    }
+  });
+
+  // Return default if no record exists for today
+  if (!waterIntake) {
+    return { glasses: 0, date: today };
+  }
+
+  return waterIntake;
+}
+
 export const getTodaysTip = async (args, context) => {
   // Get current day of year (1-365)
   const now = new Date();

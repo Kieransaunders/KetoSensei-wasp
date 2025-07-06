@@ -235,6 +235,9 @@ entity WeightLog {
 - ✅ **Performance Monitoring**: Database operation timing and UI interaction tracking
 - ✅ **User Experience**: Loading states, error recovery, and visual feedback
 - ✅ **Test Coverage**: Unit tests for favorites functionality with edge case handling
-- [ ] **Integration Tests**: End-to-end testing for critical user flows
+- ✅ **Playwright MCP**: Installed for end-to-end testing and app automation
+- ✅ **Sentry MCP**: Installed for advanced error log analysis and monitoring
+- [ ] **Integration Tests**: End-to-end testing for critical user flows using Playwright MCP
 - [ ] **Performance Testing**: Load testing for AI-powered operations
-- [ ] **User Acceptance Testing**: Test all user stories and workflows
+- [ ] **User Acceptance Testing**: Test all user stories and workflows with Playwright automation
+- [ ] **Error Analysis**: Use Sentry MCP to analyze error patterns and troubleshoot issues

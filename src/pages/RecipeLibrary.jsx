@@ -392,15 +392,26 @@ const RecipeLibraryPage = () => {
                 <div>
                   <h3 className="text-lg font-bold text-white mb-4">Ingredients</h3>
                   <ul className="space-y-3">
-                    {(Array.isArray(selectedRecipe.ingredients) 
-                      ? selectedRecipe.ingredients 
-                      : selectedRecipe.ingredients?.split(';').map(ingredient => ingredient.trim())
-                    )?.map((ingredient, index) => (
-                      <li key={index} className="flex items-start space-x-3">
-                        <div className="w-2 h-2 bg-lime-400 rounded-full mt-2 flex-shrink-0"></div>
-                        <span className="text-gray-300">{ingredient}</span>
-                      </li>
-                    ))}
+                    {(() => {
+                      // Safe ingredients handling - prevents .map crashes
+                      let ingredients = [];
+                      
+                      if (Array.isArray(selectedRecipe.ingredients)) {
+                        ingredients = selectedRecipe.ingredients;
+                      } else if (typeof selectedRecipe.ingredients === 'string' && selectedRecipe.ingredients) {
+                        ingredients = selectedRecipe.ingredients.split(';').map(ingredient => ingredient.trim()).filter(Boolean);
+                      } else if (selectedRecipe.ingredients) {
+                        // Handle other data types gracefully
+                        ingredients = [String(selectedRecipe.ingredients)];
+                      }
+                      
+                      return ingredients.map((ingredient, index) => (
+                        <li key={index} className="flex items-start space-x-3">
+                          <div className="w-2 h-2 bg-lime-400 rounded-full mt-2 flex-shrink-0"></div>
+                          <span className="text-gray-300">{ingredient}</span>
+                        </li>
+                      ));
+                    })()}
                   </ul>
                 </div>
               )}
@@ -409,17 +420,31 @@ const RecipeLibraryPage = () => {
                 <div>
                   <h3 className="text-lg font-bold text-white mb-4">Method</h3>
                   <ol className="space-y-4">
-                    {(Array.isArray(selectedRecipe.method) 
-                      ? selectedRecipe.method 
-                      : selectedRecipe.instructions?.split('.').filter(step => step.trim()).map(step => step.trim() + '.')
-                    )?.map((step, index) => (
-                      <li key={index} className="flex items-start space-x-4">
-                        <div className="w-8 h-8 bg-lime-400 text-gray-900 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
-                          {index + 1}
-                        </div>
-                        <span className="text-gray-300 leading-relaxed">{step}</span>
-                      </li>
-                    ))}
+                    {(() => {
+                      // Safe method/instructions handling
+                      let steps = [];
+                      
+                      if (Array.isArray(selectedRecipe.method)) {
+                        steps = selectedRecipe.method;
+                      } else if (Array.isArray(selectedRecipe.instructions)) {
+                        steps = selectedRecipe.instructions;
+                      } else if (typeof selectedRecipe.method === 'string' && selectedRecipe.method) {
+                        steps = selectedRecipe.method.split('.').map(step => step.trim()).filter(Boolean).map(step => step + '.');
+                      } else if (typeof selectedRecipe.instructions === 'string' && selectedRecipe.instructions) {
+                        steps = selectedRecipe.instructions.split('.').map(step => step.trim()).filter(Boolean).map(step => step + '.');
+                      } else if (selectedRecipe.method || selectedRecipe.instructions) {
+                        steps = [String(selectedRecipe.method || selectedRecipe.instructions)];
+                      }
+                      
+                      return steps.map((step, index) => (
+                        <li key={index} className="flex items-start space-x-4">
+                          <div className="w-8 h-8 bg-lime-400 text-gray-900 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0">
+                            {index + 1}
+                          </div>
+                          <span className="text-gray-300 leading-relaxed">{step}</span>
+                        </li>
+                      ));
+                    })()}
                   </ol>
                 </div>
               )}

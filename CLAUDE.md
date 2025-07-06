@@ -52,6 +52,14 @@ wasp db generate
 # Testing
 npm test              # Run tests with Vitest
 npm run test:watch    # Run tests in watch mode
+
+# End-to-End Testing
+# Playwright MCP is available for automated browser testing
+# Use Claude Code's Playwright MCP tools for E2E testing and app automation
+
+# Error Monitoring & Analysis
+# Sentry MCP is available for analyzing error logs and troubleshooting issues
+# Use Claude Code's Sentry MCP tools to investigate production errors
 ```
 
 ## File Structure
@@ -137,9 +145,12 @@ KetoSensei uses a "Kung Fu master" persona throughout the app:
 - Sentry integration for error tracking and performance monitoring
 - Custom spans for database operations and UI interactions
 - Real-time error tracking with stack traces and user context
+- **Sentry MCP**: Available for advanced error log analysis and troubleshooting
 
 ### Testing Strategy
 - **Unit Tests**: Vitest with React Testing Library
 - **Test Setup**: jsdom environment with global test utilities
 - **Coverage**: Focus on critical user flows and error scenarios
 - **Location**: Tests in `src/tests/` directory
+- **End-to-End Testing**: Playwright MCP is installed and available for automated browser testing and app automation
+- **Integration Testing**: Use Playwright MCP for testing complete user workflows and UI interactions
