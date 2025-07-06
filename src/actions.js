@@ -201,7 +201,7 @@ Generate 3 keto recipes using these ingredients. Format as JSON:
 
 Return only JSON array.`;
 
-    // 4. Call Flowise API
+    // 4. Call Flowise API with streaming support
     const rawRecipes = await callFlowiseForRecipes(prompt, context.user.id);
     const recipes = validateAndFormatRecipes(rawRecipes);
     
@@ -236,6 +236,20 @@ Return only JSON array.`;
 
   } catch (error) {
     console.error('Error generating recipes:', error);
+    throw new HttpError(500, 'Failed to generate recipes. Please try again.');
+  }
+}
+
+// New streaming version for real-time updates (future enhancement)
+export const generateRecipeFromIngredientsStream = async ({ ingredients }, context) => {
+  if (!context.user) { throw new HttpError(401); }
+
+  try {
+    // This could be extended to support SSE (Server-Sent Events) in the future
+    // For now, it uses the same logic but could be enhanced for real-time streaming to frontend
+    return await generateRecipeFromIngredients({ ingredients }, context);
+  } catch (error) {
+    console.error('Error generating recipes (stream):', error);
     throw new HttpError(500, 'Failed to generate recipes. Please try again.');
   }
 }

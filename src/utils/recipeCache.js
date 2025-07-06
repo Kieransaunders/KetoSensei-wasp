@@ -29,9 +29,9 @@ export function setCachedRecipes(ingredients, recipes) {
 // Clean up old cache entries periodically
 setInterval(() => {
   const now = Date.now();
-  for (const [key, value] of recipeCache.entries()) {
+  recipeCache.forEach((value, key) => {
     if (now - value.timestamp > CACHE_DURATION) {
       recipeCache.delete(key);
     }
-  }
+  });
 }, CACHE_DURATION);

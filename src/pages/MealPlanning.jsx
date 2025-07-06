@@ -13,6 +13,8 @@ const MealPlanningPage = () => {
   const [activeRecipeTab, setActiveRecipeTab] = useState('ingredients');
   const [weekMeals, setWeekMeals] = useState({});
   const [saveMessage, setSaveMessage] = useState('');
+  const [showShoppingList, setShowShoppingList] = useState(false);
+  const [shoppingList, setShoppingList] = useState([]);
 
   // Generate the next 7 days starting from today
   const getWeekDates = (date = new Date()) => {
@@ -35,7 +37,8 @@ const MealPlanningPage = () => {
 
   // Load existing meal plans from database
   useEffect(() => {
-    if (mealPlans && recipes) {
+    if (mealPlans && recipes && Object.keys(weekMeals).length === 0) {
+      // Only load from database if we don't have generated meals in memory
       loadExistingMealPlans();
     }
   }, [mealPlans, recipes]);
@@ -92,65 +95,72 @@ const MealPlanningPage = () => {
   }
 
   const getFilteredRecipes = (mealType) => {
-    if (!recipes || !userPreferences) return [];
+    if (!recipes) return [];
     
-    return recipes.filter(recipe => {
-      const recipeName = recipe.name.toLowerCase();
-      const recipeIngredients = recipe.ingredients.toLowerCase();
+    // First try to get recipes that match the meal type exactly
+    let filteredRecipes = recipes.filter(recipe => {
+      const recipeType = recipe.type?.toLowerCase() || '';
+      const targetType = mealType.toLowerCase();
       
-      // Meal type matching
-      const mealTypeMatch = !recipe.type || 
-        recipe.type.toLowerCase() === mealType.toLowerCase() ||
-        (mealType === 'Snack' && ['snack', 'appetizer', 'side'].includes(recipe.type.toLowerCase()));
-
-      if (!mealTypeMatch) return false;
-
-      // Check dietary restrictions
-      if (userPreferences.vegetarian) {
-        const meatKeywords = ['beef', 'chicken', 'pork', 'turkey', 'lamb', 'duck', 'fish', 'salmon', 'tuna'];
-        if (meatKeywords.some(meat => recipeName.includes(meat) || recipeIngredients.includes(meat))) {
-          return false;
-        }
-      }
-
-      if (userPreferences.vegan) {
-        const animalKeywords = ['cheese', 'egg', 'milk', 'butter', 'cream', 'yogurt', 'meat', 'fish', 'chicken', 'beef'];
-        if (animalKeywords.some(animal => recipeName.includes(animal) || recipeIngredients.includes(animal))) {
-          return false;
-        }
-      }
-
-      if (userPreferences.dairyFree) {
-        const dairyKeywords = ['cheese', 'milk', 'butter', 'cream', 'yogurt', 'dairy'];
-        if (dairyKeywords.some(dairy => recipeName.includes(dairy) || recipeIngredients.includes(dairy))) {
-          return false;
-        }
-      }
-
-      if (userPreferences.nutFree) {
-        const nutKeywords = ['almond', 'walnut', 'pecan', 'cashew', 'pistachio', 'hazelnut', 'peanut', 'nut'];
-        if (nutKeywords.some(nut => recipeName.includes(nut) || recipeIngredients.includes(nut))) {
-          return false;
-        }
-      }
-
-      // Check allergies
-      if (userPreferences.allergies) {
-        try {
-          const allergies = JSON.parse(userPreferences.allergies);
-          for (let allergy of allergies) {
-            const allergyLower = allergy.toLowerCase();
-            if (recipeName.includes(allergyLower) || recipeIngredients.includes(allergyLower)) {
-              return false;
-            }
-          }
-        } catch (e) {
-          console.log('Error parsing allergies JSON:', e);
-        }
-      }
-
-      return true;
+      return recipeType === targetType || 
+             (targetType === 'snack' && ['snack', 'appetizer', 'side'].includes(recipeType));
     });
+    
+    // If no exact matches, be more flexible and include recipes with no type or similar types
+    if (filteredRecipes.length === 0) {
+      filteredRecipes = recipes.filter(recipe => {
+        const recipeType = recipe.type?.toLowerCase() || '';
+        
+        // Allow recipes with no type, or similar types
+        return !recipeType || 
+               recipeType === 'generated' ||
+               (mealType === 'Breakfast' && ['breakfast', 'snack'].includes(recipeType)) ||
+               (mealType === 'Lunch' && ['lunch', 'dinner', 'snack'].includes(recipeType)) ||
+               (mealType === 'Dinner' && ['dinner', 'lunch'].includes(recipeType));
+      });
+    }
+    
+    // If still no matches, just use any available recipes (fallback)
+    if (filteredRecipes.length === 0) {
+      filteredRecipes = recipes.slice(); // Use all recipes as fallback
+    }
+    
+    // Apply dietary restrictions only if user preferences are loaded
+    if (userPreferences && filteredRecipes.length > 0) {
+      const finalFiltered = filteredRecipes.filter(recipe => {
+        const recipeName = recipe.name?.toLowerCase() || '';
+        const recipeIngredients = recipe.ingredients?.toLowerCase() || '';
+        
+        // Only apply dietary restrictions if they are explicitly set to true
+        if (userPreferences.vegetarian === true) {
+          const meatKeywords = ['beef', 'chicken', 'pork', 'turkey', 'lamb', 'duck'];
+          if (meatKeywords.some(meat => recipeName.includes(meat) || recipeIngredients.includes(meat))) {
+            return false;
+          }
+        }
+
+        if (userPreferences.vegan === true) {
+          const animalKeywords = ['cheese', 'egg', 'milk', 'butter', 'cream', 'yogurt', 'meat', 'chicken', 'beef'];
+          if (animalKeywords.some(animal => recipeName.includes(animal) || recipeIngredients.includes(animal))) {
+            return false;
+          }
+        }
+
+        if (userPreferences.dairyFree === true) {
+          const dairyKeywords = ['cheese', 'milk', 'butter', 'cream', 'yogurt'];
+          if (dairyKeywords.some(dairy => recipeName.includes(dairy) || recipeIngredients.includes(dairy))) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+      
+      // If dietary restrictions filtered out everything, use original filtered recipes
+      return finalFiltered.length > 0 ? finalFiltered : filteredRecipes;
+    }
+    
+    return filteredRecipes;
   };
 
   const saveMealPlanToDatabase = async (weekMealsData) => {
@@ -186,20 +196,24 @@ const MealPlanningPage = () => {
       
       mealTypes.forEach(mealType => {
         const availableRecipes = getFilteredRecipes(mealType);
+        
         if (availableRecipes.length > 0) {
           const randomRecipe = availableRecipes[Math.floor(Math.random() * availableRecipes.length)];
           newWeekMeals[dateKey][mealType] = randomRecipe;
         }
       });
     });
-
     setWeekMeals(newWeekMeals);
+    
+    // Force a re-render by updating a dummy state
+    setSelectedDate(new Date(selectedDate));
     
     // Auto-save to database
     try {
       await saveMealPlanToDatabase(newWeekMeals);
       setSaveMessage("Next 7 days planned and saved with sensei wisdom! 🥋💾");
     } catch (error) {
+      console.error('Error saving meal plan:', error);
       setSaveMessage("Meals planned but sensei had trouble saving. Try again, grasshopper.");
     }
     
@@ -225,6 +239,15 @@ const MealPlanningPage = () => {
 
   const selectedDateKey = selectedDate.toDateString();
   const todayMeals = weekMeals[selectedDateKey] || {};
+  
+  // Standard meal types to always show
+  const standardMealTypes = ['Breakfast', 'Lunch', 'Dinner'];
+  
+  // Ensure we always show the standard meal slots, even if empty
+  const mealsToDisplay = {};
+  standardMealTypes.forEach(mealType => {
+    mealsToDisplay[mealType] = todayMeals[mealType] || null;
+  });
 
   const getMacros = (recipe) => {
     // Mock macro calculation - in a real app, this would be calculated from ingredients
@@ -245,7 +268,109 @@ const MealPlanningPage = () => {
     return times[mealType] || '';
   };
 
-  const totalDailyMacros = Object.values(todayMeals).reduce((total, recipe) => {
+  // Shopping list generation logic
+  const generateShoppingList = () => {
+    const ingredientMap = new Map();
+    const categorizedIngredients = {
+      'Proteins': [],
+      'Vegetables': [], 
+      'Dairy & Eggs': [],
+      'Fats & Oils': [],
+      'Pantry': [],
+      'Herbs & Spices': [],
+      'Other': []
+    };
+
+    // Extract ingredients from all meals in the week
+    Object.values(weekMeals).forEach(dayMeals => {
+      Object.values(dayMeals).forEach(recipe => {
+        if (recipe && recipe.ingredients) {
+          let ingredients;
+          
+          try {
+            // Try to parse as JSON first (for generated recipes)
+            ingredients = JSON.parse(recipe.ingredients);
+          } catch {
+            // If not JSON, split by common delimiters
+            ingredients = recipe.ingredients
+              .split(/[;,\n]/)
+              .map(item => item.trim())
+              .filter(item => item.length > 0);
+          }
+
+          ingredients.forEach(ingredient => {
+            const cleanIngredient = ingredient.trim().toLowerCase();
+            if (cleanIngredient) {
+              // Count occurrences and store original casing
+              if (ingredientMap.has(cleanIngredient)) {
+                ingredientMap.get(cleanIngredient).count++;
+              } else {
+                ingredientMap.set(cleanIngredient, {
+                  original: ingredient.trim(),
+                  count: 1,
+                  checked: false,
+                  category: categorizeIngredient(cleanIngredient)
+                });
+              }
+            }
+          });
+        }
+      });
+    });
+
+    // Convert to categorized shopping list
+    ingredientMap.forEach((data, key) => {
+      const item = {
+        id: key,
+        name: data.original,
+        count: data.count,
+        checked: data.checked,
+        category: data.category
+      };
+      
+      categorizedIngredients[data.category].push(item);
+    });
+
+    // Sort each category alphabetically
+    Object.keys(categorizedIngredients).forEach(category => {
+      categorizedIngredients[category].sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    setShoppingList(categorizedIngredients);
+    setShowShoppingList(true);
+  };
+
+  // Categorize ingredients by type
+  const categorizeIngredient = (ingredient) => {
+    const proteins = ['chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'turkey', 'lamb', 'shrimp', 'crab', 'bacon', 'sausage', 'ham', 'venison'];
+    const vegetables = ['spinach', 'kale', 'broccoli', 'cauliflower', 'zucchini', 'cucumber', 'tomato', 'lettuce', 'avocado', 'bell pepper', 'onion', 'garlic', 'mushroom', 'asparagus', 'cabbage', 'celery'];
+    const dairy = ['cheese', 'cream', 'butter', 'egg', 'milk', 'yogurt', 'mozzarella', 'cheddar', 'parmesan'];
+    const fats = ['olive oil', 'coconut oil', 'avocado oil', 'macadamia', 'almond', 'walnut', 'pecan', 'nut'];
+    const herbs = ['basil', 'oregano', 'thyme', 'rosemary', 'parsley', 'cilantro', 'dill', 'sage', 'pepper', 'salt', 'paprika', 'cumin', 'turmeric'];
+    const pantry = ['vinegar', 'lemon', 'lime', 'broth', 'stock', 'flour', 'powder', 'extract'];
+
+    ingredient = ingredient.toLowerCase();
+
+    if (proteins.some(protein => ingredient.includes(protein))) return 'Proteins';
+    if (vegetables.some(veg => ingredient.includes(veg))) return 'Vegetables';
+    if (dairy.some(d => ingredient.includes(d))) return 'Dairy & Eggs';
+    if (fats.some(fat => ingredient.includes(fat))) return 'Fats & Oils';
+    if (herbs.some(herb => ingredient.includes(herb))) return 'Herbs & Spices';
+    if (pantry.some(p => ingredient.includes(p))) return 'Pantry';
+    
+    return 'Other';
+  };
+
+  const toggleShoppingItem = (category, itemId) => {
+    setShoppingList(prev => ({
+      ...prev,
+      [category]: prev[category].map(item =>
+        item.id === itemId ? { ...item, checked: !item.checked } : item
+      )
+    }));
+  };
+
+  const totalDailyMacros = Object.values(mealsToDisplay).reduce((total, recipe) => {
     if (recipe) {
       const macros = getMacros(recipe);
       total.carbs += macros.carbs;
@@ -308,7 +433,7 @@ const MealPlanningPage = () => {
 
       {/* Meals for Selected Day */}
       <div className="space-y-4 mb-6">
-        {Object.entries(todayMeals).map(([mealType, recipe]) => (
+        {Object.entries(mealsToDisplay).map(([mealType, recipe]) => (
           <div key={mealType} className="bg-gray-800 rounded-lg p-4 border border-gray-700">
             <div className="flex items-center justify-between mb-3">
               <div>

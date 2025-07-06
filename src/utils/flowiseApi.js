@@ -48,21 +48,22 @@ export async function callFlowiseForRecipes(prompt, userId) {
       return getMockRecipes(prompt);
     }
 
-    // ACTUAL Flowise API call with streaming for better performance
+    // ACTUAL Flowise API call with streaming enabled
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // Increased to 60 seconds for streaming
 
     const response = await fetch(`${FLOWISE_CONFIG.baseUrl}/api/v1/prediction/${FLOWISE_CONFIG.flows.recipeGeneration}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
         // Add authorization if API key is set
         ...(FLOWISE_CONFIG.apiKey && { 'Authorization': `Bearer ${FLOWISE_CONFIG.apiKey}` })
       },
       body: JSON.stringify({
         question: prompt,
         sessionId: `user_${userId}_recipes`,
-        streaming: false,  // Keep false for now, streaming needs special handling
+        streaming: true,  // Enable streaming for real-time responses
         overrideConfig: {
           temperature: 0.5,  // Lower temperature = faster, more focused responses
           maxTokens: 800,    // Reduced significantly for faster response
@@ -78,6 +79,13 @@ export async function callFlowiseForRecipes(prompt, userId) {
       throw new Error(`Flowise API error: ${response.status} ${response.statusText}`);
     }
 
+    // Handle streaming response
+    if (response.headers.get('content-type')?.includes('text/event-stream')) {
+      console.log('📡 Processing streaming response...');
+      return await handleStreamingResponse(response, ingredients);
+    }
+
+    // Fallback to non-streaming response handling
     const data = await response.json();
     console.log('✅ Flowise API response received');
     
@@ -116,6 +124,75 @@ export async function callFlowiseForRecipes(prompt, userId) {
     // Fallback to mock data in case of API failure
     console.log('🔄 Falling back to mock data...');
     return getMockRecipes(prompt);
+  }
+}
+
+/**
+ * Handle streaming response from Flowise API
+ * @param {Response} response - Fetch response object with streaming data
+ * @param {string} ingredients - Original ingredients for caching
+ * @returns {Promise<Array>} - Parsed recipes from stream
+ */
+async function handleStreamingResponse(response, ingredients) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let fullResponse = '';
+  
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) break;
+      
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+          
+          if (data === '[DONE]') {
+            break;
+          }
+          
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.token) {
+              fullResponse += parsed.token;
+            } else if (parsed.text) {
+              fullResponse += parsed.text;
+            }
+          } catch (e) {
+            // If it's not JSON, it might be plain text
+            if (data && data !== '') {
+              fullResponse += data;
+            }
+          }
+        }
+      }
+    }
+    
+    console.log('🔄 Stream completed, parsing recipes...');
+    
+    // Parse the complete response
+    try {
+      // Try to parse as JSON array first
+      const recipes = JSON.parse(fullResponse);
+      const recipeArray = Array.isArray(recipes) ? recipes : [recipes];
+      setCachedRecipes(ingredients, recipeArray);
+      return recipeArray;
+    } catch (parseError) {
+      // Fallback to text extraction
+      const fallbackRecipes = extractRecipesFromText(fullResponse);
+      if (fallbackRecipes.length > 0) {
+        setCachedRecipes(ingredients, fallbackRecipes);
+        return fallbackRecipes;
+      }
+      throw new Error('Failed to parse streamed response');
+    }
+    
+  } finally {
+    reader.releaseLock();
   }
 }
 

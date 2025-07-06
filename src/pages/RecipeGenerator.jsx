@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { generateRecipeFromIngredients, addRecipeToFavorites } from 'wasp/client/operations';
 
 const RecipeGenerator = () => {
   const [ingredients, setIngredients] = useState('');
   const [generatedRecipes, setGeneratedRecipes] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState('');
   const [error, setError] = useState('');
+  const abortControllerRef = useRef(null);
 
   const handleGenerateRecipes = async () => {
     if (!ingredients.trim()) {
@@ -13,25 +15,61 @@ const RecipeGenerator = () => {
       return;
     }
 
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new abort controller for this request
+    abortControllerRef.current = new AbortController();
+
     setLoading(true);
     setError('');
+    setLoadingStage('🧘‍♂️ Centering my chi...');
     
     try {
+      // Simulate streaming stages for better UX
+      const stage1 = setTimeout(() => setLoadingStage('🔍 Analyzing your ingredients...'), 500);
+      const stage2 = setTimeout(() => setLoadingStage('🧠 Consulting ancient keto wisdom...'), 1500);
+      const stage3 = setTimeout(() => setLoadingStage('⚡ Forging perfect recipes...'), 3000);
+      
       const result = await generateRecipeFromIngredients({ 
         ingredients: ingredients.trim() 
       });
       
+      // Clear timeouts if request completes
+      clearTimeout(stage1);
+      clearTimeout(stage2);
+      clearTimeout(stage3);
+      
       if (result.success) {
+        setLoadingStage('✨ Recipes complete! Preparing your feast...');
         setGeneratedRecipes(result.recipes);
         setError('');
       } else {
         setError('Failed to generate recipes. Please try again.');
       }
     } catch (err) {
-      console.error('Recipe generation error:', err);
-      setError('Something went wrong. Please try again.');
+      if (err.name === 'AbortError') {
+        console.log('Recipe generation cancelled');
+        setError('Recipe generation was cancelled.');
+      } else {
+        console.error('Recipe generation error:', err);
+        setError('Something went wrong. Please try again.');
+      }
     } finally {
       setLoading(false);
+      setLoadingStage('');
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleCancelGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setLoading(false);
+      setLoadingStage('');
+      setError('Recipe generation cancelled.');
     }
   };
 
@@ -93,8 +131,31 @@ const RecipeGenerator = () => {
             disabled={loading || !ingredients.trim()}
             className="w-full bg-lime-500 text-black font-semibold py-3 px-6 rounded-lg hover:bg-lime-400 disabled:bg-gray-600 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? '🔄 Channeling keto wisdom...' : '✨ Generate Recipes'}
+            {loading ? (loadingStage || '🔄 Channeling keto wisdom...') : '✨ Generate Recipes'}
           </button>
+
+          {/* Enhanced Loading State */}
+          {loading && (
+            <div className="mt-4 p-4 bg-gray-700 border border-lime-500 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-lime-500"></div>
+                  <span className="text-lime-400 font-medium">
+                    {loadingStage || 'Processing...'}
+                  </span>
+                </div>
+                <button
+                  onClick={handleCancelGeneration}
+                  className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="mt-2 text-sm text-gray-400">
+                Sensei is crafting your perfect keto recipes with streaming AI power...
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="mt-4 p-3 bg-red-900 border border-red-700 rounded text-red-200">
