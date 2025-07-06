@@ -51,6 +51,11 @@ action addWaterGlass {
   entities: [WaterIntake]
 }
 
+action generateRecipeFromIngredients {
+  fn: import { generateRecipeFromIngredients } from "@src/actions.js",
+  entities: [Recipe, UserPreferences]
+}
+
 query getUserPreferences {
   fn: import { getUserPreferences } from "@src/queries.js",
   entities: [UserPreferences]
@@ -108,5 +113,11 @@ page UserPreferencesPage {
 route SenseiRoute { path: "/sensei", to: SenseiPage }
 page SenseiPage {
   component: import SenseiPage from "@src/pages/Sensei.jsx",
+  authRequired: true
+}
+
+route RecipeGeneratorRoute { path: "/generate-recipes", to: RecipeGeneratorPage }
+page RecipeGeneratorPage {
+  component: import RecipeGeneratorPage from "@src/pages/RecipeGenerator.jsx",
   authRequired: true
 }

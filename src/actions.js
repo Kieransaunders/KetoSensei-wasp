@@ -1,4 +1,5 @@
 import { HttpError } from 'wasp/server'
+import { callFlowiseForRecipes, validateAndFormatRecipes } from './utils/flowiseApi.js'
 
 export const updateUserPreferences = async (data, context) => {
   if (!context.user) { throw new HttpError(401); }
@@ -178,6 +179,114 @@ export const addWaterGlass = async (args, context) => {
   }
 
   return waterIntake;
+}
+
+export const generateRecipeFromIngredients = async ({ ingredients }, context) => {
+  if (!context.user) { throw new HttpError(401); }
+
+  try {
+    // 1. Get user preferences
+    const userContext = await buildUserPreferenceContext(context.user.id, context);
+    
+    // 2. Format ingredients
+    const ingredientList = Array.isArray(ingredients) ? ingredients.join(', ') : ingredients;
+    
+    // 3. Build prompt for Flowise
+    const prompt = `${userContext}
+
+INGREDIENTS TO USE: ${ingredientList}
+
+Generate 3 unique keto recipes using these ingredients. Each recipe must:
+- Be keto-friendly (under 10g net carbs per serving)
+- Respect the user's dietary restrictions above
+- Include the provided ingredients as main components
+- Be practical and easy to make
+
+Format as JSON array:
+[
+  {
+    "title": "Recipe Name",
+    "ingredients": ["ingredient 1", "ingredient 2", ...],
+    "instructions": ["step 1", "step 2", ...],
+    "prepTime": "15 minutes",
+    "servings": 2,
+    "netCarbs": "5g per serving"
+  }
+]
+
+Return ONLY the JSON array, no additional text.`;
+
+    // 4. Call Flowise API
+    const rawRecipes = await callFlowiseForRecipes(prompt, context.user.id);
+    const recipes = validateAndFormatRecipes(rawRecipes);
+    
+    // 5. Save generated recipes to database
+    const savedRecipes = [];
+    for (const recipe of recipes) {
+      const savedRecipe = await context.entities.Recipe.create({
+        data: {
+          name: recipe.title,
+          type: 'generated',
+          ingredients: JSON.stringify(recipe.ingredients),
+          instructions: Array.isArray(recipe.instructions) 
+            ? recipe.instructions.join('\n') 
+            : recipe.instructions,
+          userId: context.user.id,
+          isFavorite: false
+        }
+      });
+      savedRecipes.push({
+        ...savedRecipe,
+        prepTime: recipe.prepTime,
+        servings: recipe.servings,
+        netCarbs: recipe.netCarbs
+      });
+    }
+
+    return {
+      success: true,
+      recipes: savedRecipes,
+      inputIngredients: ingredientList
+    };
+
+  } catch (error) {
+    console.error('Error generating recipes:', error);
+    throw new HttpError(500, 'Failed to generate recipes. Please try again.');
+  }
+}
+
+// Helper function to build user preference context
+async function buildUserPreferenceContext(userId, context) {
+  const preferences = await context.entities.UserPreferences.findUnique({
+    where: { userId }
+  });
+
+  if (!preferences) {
+    return `User Dietary Preferences: Standard keto diet (no specific restrictions)`;
+  }
+
+  const dietaryRestrictions = [];
+  if (preferences.vegetarian) dietaryRestrictions.push('Vegetarian');
+  if (preferences.vegan) dietaryRestrictions.push('Vegan'); 
+  if (preferences.pescatarian) dietaryRestrictions.push('Pescatarian');
+  if (preferences.dairyFree) dietaryRestrictions.push('Dairy-free');
+  if (preferences.glutenFree) dietaryRestrictions.push('Gluten-free');
+  if (preferences.nutFree) dietaryRestrictions.push('Nut-free');
+
+  const allergies = preferences.allergies ? JSON.parse(preferences.allergies) : [];
+  const intolerances = preferences.intolerances ? JSON.parse(preferences.intolerances) : [];
+  const proteinSources = preferences.proteinSources ? JSON.parse(preferences.proteinSources) : [];
+
+  return `User Dietary Preferences:
+- Dietary restrictions: ${dietaryRestrictions.length ? dietaryRestrictions.join(', ') : 'None'}
+- Preferred protein sources: ${proteinSources.length ? proteinSources.join(', ') : 'Any keto-friendly proteins'}
+- Allergies: ${allergies.length ? allergies.join(', ') : 'None'}
+- Food intolerances: ${intolerances.length ? intolerances.join(', ') : 'None'}
+- Daily carb limit: ${preferences.carbLimit || 20}g net carbs
+- Keto experience level: ${preferences.ketoExperience || 'beginner'}
+- Primary goal: ${preferences.primaryGoal || 'general health'}
+
+CRITICAL: Only suggest recipes that are safe for this user and respect ALL dietary restrictions and allergies listed above.`;
 }
 
 function getBeltMessage(streakCount) {

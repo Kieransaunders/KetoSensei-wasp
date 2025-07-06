@@ -36,7 +36,9 @@ KetoSensei is a keto diet planning application built with Wasp, a React-based fu
 Since this is a Wasp project, development commands are handled through the Wasp CLI:
 
 ```bash
-# Start development server
+# Start development server (CORRECT WAY)
+npm run dev              # Uses: wasp start
+# OR directly if wasp is in PATH:
 wasp start
 
 # Build for production
@@ -54,6 +56,10 @@ npm test              # Run tests with Vitest
 npm run test:watch    # Run tests in watch mode
 
 # End-to-End Testing
+npm run test:e2e      # Run Playwright tests
+npm run test:e2e:ui   # Run Playwright tests with UI
+
+# Playwright MCP Testing
 # Playwright MCP is available for automated browser testing
 # Use Claude Code's Playwright MCP tools for E2E testing and app automation
 
@@ -61,6 +67,66 @@ npm run test:watch    # Run tests in watch mode
 # Sentry MCP is available for analyzing error logs and troubleshooting issues
 # Use Claude Code's Sentry MCP tools to investigate production errors
 ```
+
+## Common Development Issues
+
+### **Port Incrementing Problem**
+If you notice the development server port keeps incrementing (3000 → 3001 → 3002), this indicates:
+
+**Root Cause**: Using incorrect start command or Wasp not properly installed
+
+**Solutions**:
+1. **Use correct start command**: `npm run dev` (not `npm start` or other commands)
+2. **Install Wasp globally** if needed:
+   ```bash
+   curl -sSL https://get.wasp-lang.dev/installer.sh | sh
+   ```
+3. **Kill existing Node processes**:
+   ```bash
+   pkill -f node  # Be careful - kills ALL Node apps
+   # Or more specifically:
+   pkill -f wasp
+   ```
+4. **Clean restart**:
+   ```bash
+   wasp clean
+   npm run dev
+   ```
+
+**Port Detection**: Wasp automatically finds available ports. Consistent port incrementing suggests configuration issues.
+
+### **Missing Routes/Navigation**
+If new routes don't appear in navigation or return 404 errors:
+
+**Root Cause**: Wasp server not restarted after `main.wasp` changes
+
+**Solution**: Always restart the development server after modifying:
+- Route definitions in `main.wasp`
+- Action/query definitions
+- Database schema changes
+
+### **Testing Setup**
+The project includes comprehensive testing infrastructure:
+
+**Unit Testing** (Vitest + React Testing Library):
+- Location: `src/tests/`
+- Run: `npm test` or `npm run test:watch`
+- Coverage: Core functionality and edge cases
+
+**End-to-End Testing** (Playwright):
+- Config: `playwright.config.js`
+- Run: `npm run test:e2e`
+- UI Mode: `npm run test:e2e:ui`
+
+**Playwright MCP Integration**:
+- Available for automated browser testing
+- Use Claude Code to create and run E2E tests
+- Test real user workflows and UI interactions
+
+**Error Monitoring** (Sentry):
+- Real-time error tracking with stack traces
+- Performance monitoring for database operations
+- Sentry MCP available for error analysis and troubleshooting
 
 ## File Structure
 
